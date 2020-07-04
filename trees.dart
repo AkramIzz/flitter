@@ -1,4 +1,5 @@
 import 'bindings.dart';
+import 'render_object.dart';
 
 abstract class Widget {
   Element createElement();
@@ -88,10 +89,17 @@ abstract class Element {
 
   void deactivateChild(Element child) {
     child._parent = null;
+    child.detachRenderObject();
     owner.inactiveElements.add(child);
     // in flutter adding to _inactiveElements calls deactivate
     // recursively on child and its descendents
     child.deactivateRecursively();
+  }
+
+  void detachRenderObject() {
+    visitChildren((child) {
+      child.detachRenderObject();
+    });
   }
 
   void deactivateRecursively() {
@@ -123,52 +131,6 @@ abstract class Element {
     if (b.dirty && !a.dirty) return -1;
     if (a.dirty && !b.dirty) return 1;
     return 0;
-  }
-}
-
-class RootElementWidget extends Widget {
-  RootElementWidget({this.child});
-
-  final Widget child;
-
-  RootElement attach(BuildOwner owner) {
-    final element = createElement();
-    element.assignOwner(owner);
-    owner.buildScope(null, () {
-      element.mount(null);
-    });
-    return element;
-  }
-
-  @override
-  RootElement createElement() => RootElement(this);
-}
-
-class RootElement extends Element {
-  RootElement(RootElementWidget widget) : super(widget);
-
-  RootElementWidget get widget => super.widget;
-
-  Element _child;
-
-  @override
-  void mount(Element parent) {
-    super.mount(parent);
-    _rebuild();
-  }
-
-  void _rebuild() {
-    _child = updateChild(_child, widget.child);
-  }
-
-  @override
-  void performRebuild() {
-    dirty = false;
-  }
-
-  @override
-  void visitChildren(void Function(Element) visitor) {
-    visitor(_child);
   }
 }
 
@@ -279,4 +241,187 @@ abstract class State<T extends StatefulWidget> {
   Widget build(Element context);
 
   void dispose() {}
+}
+
+abstract class RenderObjectWidget extends Widget {
+  @override
+  RenderObjectElement createElement();
+
+  RenderObject createRenderObject(Element context);
+
+  void updateRenderObject(Element context, covariant RenderObject renderObject);
+
+  void didUnmountRenderObject(covariant RenderObject renderObject);
+}
+
+abstract class RenderObjectElement extends Element {
+  RenderObjectElement(RenderObjectWidget widget) : super(widget);
+
+  @override
+  RenderObjectWidget get widget => super.widget;
+
+  RenderObject get renderObject => _renderObject;
+  RenderObject _renderObject;
+
+  RenderObjectElement _ancestorRenderObjectElement;
+
+  @override
+  void mount(Element parent) {
+    super.mount(parent);
+    _renderObject = widget.createRenderObject(this);
+    attachRenderObject();
+    dirty = false;
+  }
+
+  void attachRenderObject() {
+    _ancestorRenderObjectElement = _findAncestorRenderObjectElement();
+    _ancestorRenderObjectElement?.insertChildRenderObject(renderObject);
+  }
+
+  RenderObjectElement _findAncestorRenderObjectElement() {
+    var ancestor = parent;
+    while (ancestor != null && ancestor is! RenderObjectElement) {
+      ancestor = ancestor.parent;
+    }
+    return ancestor;
+  }
+
+  @override
+  void update(Widget newWidget) {
+    super.update(newWidget);
+    widget.updateRenderObject(this, renderObject);
+    dirty = false;
+  }
+
+  @override
+  void performRebuild() {
+    widget.updateRenderObject(this, renderObject);
+    dirty = false;
+  }
+
+  @override
+  void detachRenderObject() {
+    if (_ancestorRenderObjectElement != null) {
+      _ancestorRenderObjectElement.removeChildRenderObject(renderObject);
+      _ancestorRenderObjectElement = null;
+    }
+  }
+
+  @override
+  void unmount() {
+    super.unmount();
+    // renderObject should be detached here => owner == null.
+    // in deactivateChild the detachRenderObject is called. This sets the ancestor renderObject's child (this)
+    // to null using a property setter which detaches the renderObject (owner = null)
+    widget.didUnmountRenderObject(renderObject);
+  }
+
+  // add RenderObject to renderObjects tree. Called by attachRenderObject <- mount
+  void insertChildRenderObject(RenderObject child);
+
+  // remove RenderObject from renderObjects tree. Called by detachRenderObject <- deactivateChild <- updateChild
+  void removeChildRenderObject(RenderObject child);
+}
+
+abstract class LeafRenderObjectWidget extends RenderObjectWidget {
+  LeafRenderObjectElement createElement() => LeafRenderObjectElement(this);
+}
+
+class LeafRenderObjectElement extends RenderObjectElement {
+  LeafRenderObjectElement(LeafRenderObjectWidget widget) : super(widget);
+
+  @override
+  void visitChildren(void Function(Element) visitor) {
+    return;
+  }
+
+  @override
+  void insertChildRenderObject(RenderObject child) {
+    assert(false);
+  }
+
+  @override
+  void removeChildRenderObject(RenderObject renderObject) {
+    assert(false);
+  }
+}
+
+abstract class SingleChildRenderObjectWidget extends RenderObjectWidget {
+  SingleChildRenderObjectWidget(this.child);
+
+  final Widget child;
+
+  @override
+  RenderObjectElement createElement() => SingleChildRenderObjectElement(this);
+}
+
+class SingleChildRenderObjectElement extends RenderObjectElement {
+  SingleChildRenderObjectElement(SingleChildRenderObjectWidget widget)
+      : super(widget);
+
+  Element _child;
+
+  SingleChildRenderObjectWidget get widget => super.widget;
+
+  @override
+  RenderObjectWithChild get renderObject => super.renderObject;
+
+  @override
+  void mount(Element parent) {
+    super.mount(parent);
+    _child = updateChild(_child, widget.child);
+  }
+
+  @override
+  void update(Widget newWidget) {
+    super.update(newWidget);
+    _child = updateChild(_child, widget.child);
+  }
+
+  @override
+  void insertChildRenderObject(RenderObject child) {
+    renderObject.child = child;
+  }
+
+  @override
+  void removeChildRenderObject(RenderObject child) {
+    renderObject.child = null;
+  }
+
+  @override
+  void visitChildren(void Function(Element) visitor) {
+    if (_child != null) {
+      visitor(_child);
+    }
+  }
+}
+
+mixin RenderObjectWithChild on RenderObject {
+  RenderObject get child => _child;
+  void set child(RenderObject value) {
+    if (value == null) dropChild(child);
+    _child = value;
+    if (value != null) adoptChild(child);
+  }
+
+  RenderObject _child;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    child?.attach(owner);
+  }
+
+  @override
+  void detach() {
+    super.detach();
+    child?.detach();
+  }
+
+  @override
+  void visitChildren(void Function(RenderObject child) visitor) {
+    if (child != null) {
+      visitor(child);
+    }
+  }
 }
