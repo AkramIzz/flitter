@@ -1,6 +1,8 @@
 import 'dart:collection';
 
 import 'framework.dart';
+import 'geometry.dart';
+import 'render_object.dart';
 
 void main(List<String> args) {
   runApp(App());
@@ -31,12 +33,7 @@ void printTree(Element child) {
       elementsInNextDepth += 1;
       stack.addLast(child);
     });
-    if (element is LeafElement) {
-      print(
-          '${'  ' * depth}${element.runtimeType}: data => ${element.widget.data}');
-    } else {
-      print('${'  ' * depth}${element.runtimeType}');
-    }
+    _printElement(element, depth);
     elementsInThisDepth -= 1;
     if (elementsInThisDepth == 0) {
       depth += 1;
@@ -46,39 +43,60 @@ void printTree(Element child) {
   }
 }
 
+void _printElement(Element element, int depth) {
+  if (element is LeafElement) {
+    print(
+        '${'  ' * depth}${element.runtimeType}: data => ${element.widget.data}');
+  } else if (element is LeafRenderObjectElement) {
+    print(
+        '${'  ' * depth}${element.runtimeType}: size => ${(element.renderObject as LeafBoxRenderObject).size}');
+  } else if (element is SingleChildRenderObjectElement) {
+    print(
+        '${'  ' * depth}${element.runtimeType}: size => ${(element.renderObject as BoxWithChildRenderObject).size}');
+  } else {
+    print('${'  ' * depth}${element.runtimeType}');
+  }
+}
+
 class App extends StatelessWidget {
   @override
   Widget build(Element context) {
-    return AppStatefulWidget("initial data");
+    return AppStatefulWidget(false);
   }
 }
 
 class AppStatefulWidget extends StatefulWidget {
-  final String initialData;
+  final bool initialState;
 
-  AppStatefulWidget(this.initialData);
+  AppStatefulWidget(this.initialState);
 
   @override
   State<StatefulWidget> createState() => AppStatefulState();
 }
 
 class AppStatefulState extends State<AppStatefulWidget> {
-  String data;
+  bool useParent;
 
   @override
   void initState() {
     super.initState();
-    data = widget.initialData;
+    useParent = widget.initialState;
   }
 
   @override
   Widget build(Element context) {
-    return LeafElementWidget(data);
+    if (useParent) {
+      return BoxWithChildWidget(
+        LeafBoxWidget(),
+      );
+    } else {
+      return LeafBoxWidget();
+    }
   }
 
   void onEvent() {
     setState(() {
-      data = "new data";
+      useParent = true;
     });
   }
 }
@@ -117,4 +135,80 @@ class LeafElement extends Element {
           "widget with data=${oldWidget.data} has been updated to data=${widget.data}");
     }
   }
+}
+
+class LeafBoxWidget extends LeafRenderObjectWidget {
+  @override
+  RenderObject createRenderObject(Element context) => LeafBoxRenderObject();
+
+  @override
+  void updateRenderObject(Element context, RenderObject renderObject) {}
+
+  @override
+  void didUnmountRenderObject(RenderObject renderObject) {}
+}
+
+class LeafBoxRenderObject extends RenderObject {
+  @override
+  bool get sizedByParent => true;
+
+  @override
+  BoxConstraints get constraints => super.constraints;
+
+  Size get size => _size;
+  Size _size;
+
+  @override
+  void performLayout() {}
+
+  @override
+  void performResize() {
+    _size = Size(constraints.maxWidth / 2, constraints.maxHeight / 2);
+  }
+
+  @override
+  void visitChildren(void Function(RenderObject child) visitor) {
+    return;
+  }
+}
+
+class BoxWithChildWidget extends SingleChildRenderObjectWidget {
+  BoxWithChildWidget(Widget child) : super(child);
+
+  @override
+  BoxWithChildRenderObject createRenderObject(Element context) =>
+      BoxWithChildRenderObject();
+
+  @override
+  void updateRenderObject(
+      Element context, RenderObjectWithChild renderObject) {}
+
+  @override
+  void didUnmountRenderObject(RenderObject renderObject) {}
+}
+
+class BoxWithChildRenderObject extends RenderObject with RenderObjectWithChild {
+  @override
+  RenderObject get child => super.child;
+
+  @override
+  BoxConstraints get constraints => super.constraints;
+
+  Size get size => _size;
+  Size _size;
+
+  @override
+  void performLayout() {
+    child.layout(constraints, parentUsesSize: true);
+    Size size;
+    if (child is BoxWithChildRenderObject) {
+      size = (child as BoxWithChildRenderObject).size;
+    } else {
+      size = (child as LeafBoxRenderObject).size;
+    }
+    _size = Size(3 / 2 * size.width, 3 / 2 * size.height);
+  }
+
+  @override
+  void performResize() {}
 }
