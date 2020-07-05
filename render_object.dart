@@ -128,38 +128,15 @@ abstract class RenderObject {
   }
 }
 
-class ViewConfiguration {
-  const ViewConfiguration({
-    this.size = Size.zero,
-    this.devicePixelRatio = 1.0,
-  });
-
-  final Size size;
-  final double devicePixelRatio;
-}
-
-class RenderView extends RenderObject {
-  RenderView({
-    RenderObject child,
-    ViewConfiguration configuration,
-  }) : _configuration = configuration {
-    this.child = child;
-  }
-
-  ViewConfiguration get configuration => _configuration;
-  ViewConfiguration _configuration;
-
+mixin RenderObjectWithChild on RenderObject {
   RenderObject get child => _child;
-  set child(RenderObject value) {
-    if (_child != null) dropChild(child);
+  void set child(RenderObject value) {
+    if (value == null) dropChild(child);
     _child = value;
     if (value != null) adoptChild(child);
   }
 
   RenderObject _child;
-
-  Size get size => _size;
-  Size _size = Size.zero;
 
   @override
   void attach(PipelineOwner owner) {
@@ -179,25 +156,12 @@ class RenderView extends RenderObject {
       visitor(child);
     }
   }
+}
 
-  void prepareInitialFrame() {
-    scheduleInitialLayout();
-  }
-
+mixin RootRenderObjectMixin on RenderObject {
   void scheduleInitialLayout() {
     _relayoutBoundary = this;
     owner._nodesNeedingLayout.add(this);
-  }
-
-  @override
-  void performLayout() {
-    _size = configuration.size;
-    child?.layout(BoxConstraints.tight(_size));
-  }
-
-  @override
-  void performResize() {
-    assert(false);
   }
 }
 

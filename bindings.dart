@@ -1,6 +1,8 @@
+import 'element.dart';
+import 'geometry.dart';
 import 'render_object.dart';
 import 'ui.dart' as ui;
-import 'trees.dart';
+import 'widget.dart';
 
 void runApp(Widget app) {
   WidgetsBinding.ensureInitialized()
@@ -103,46 +105,71 @@ class WidgetsBinding {
   }
 }
 
-class BuildOwner {
-  List<Element> _dirtyElements = <Element>[];
+class ViewConfiguration {
+  const ViewConfiguration({
+    this.size = Size.zero,
+    this.devicePixelRatio = 1.0,
+  });
 
-  bool _scheduledFlushDirtyElements = false;
+  final Size size;
+  final double devicePixelRatio;
+}
 
-  Set<Element> inactiveElements = <Element>{};
-
-  void scheduleBuildFor(Element element) {
-    if (!_scheduledFlushDirtyElements) {
-      _scheduledFlushDirtyElements = true;
-      // flutter calls onBuildScheduled which eventually call scheduleFrame
-      WidgetsBinding.instance.scheduleFrame();
-    }
-    _dirtyElements.add(element);
+class RenderView extends RenderObject with RootRenderObjectMixin {
+  RenderView({
+    RenderObject child,
+    ViewConfiguration configuration,
+  }) : _configuration = configuration {
+    this.child = child;
   }
 
-  void buildScope(Element context, [void Function() callback]) {
-    if (callback != null) {
-      callback();
-    }
+  ViewConfiguration get configuration => _configuration;
+  ViewConfiguration _configuration;
 
-    int index = 0;
-    _dirtyElements.sort(Element.sortByDepthAscending);
-    while (index < _dirtyElements.length) {
-      _dirtyElements[index].rebuild();
-      index += 1;
-    }
-    _dirtyElements.clear();
-    _scheduledFlushDirtyElements = false;
+  RenderObject get child => _child;
+  set child(RenderObject value) {
+    if (_child != null) dropChild(child);
+    _child = value;
+    if (value != null) adoptChild(child);
   }
 
-  void finalizeTree() {
-    inactiveElements.toList()
-      ..sort(Element.sortByDepthAscending)
-      ..reversed.forEach(_unmountTreeElement);
+  RenderObject _child;
+
+  Size get size => _size;
+  Size _size = Size.zero;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    child?.attach(owner);
   }
 
-  void _unmountTreeElement(Element e) {
-    e.visitChildren((c) => _unmountTreeElement(c));
-    e.unmount();
+  @override
+  void detach() {
+    super.detach();
+    child?.detach();
+  }
+
+  @override
+  void visitChildren(void Function(RenderObject child) visitor) {
+    if (child != null) {
+      visitor(child);
+    }
+  }
+
+  void prepareInitialFrame() {
+    scheduleInitialLayout();
+  }
+
+  @override
+  void performLayout() {
+    _size = configuration.size;
+    child?.layout(BoxConstraints.tight(_size));
+  }
+
+  @override
+  void performResize() {
+    assert(false);
   }
 }
 
