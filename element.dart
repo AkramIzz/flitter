@@ -1,13 +1,6 @@
 import 'bindings.dart';
 import 'render_object.dart';
-
-abstract class Widget {
-  Element createElement();
-
-  static bool canUpdate(Widget oldWidget, Widget newWidget) {
-    return oldWidget.runtimeType == newWidget.runtimeType;
-  }
-}
+import 'widget.dart';
 
 abstract class Element {
   Element(this._widget);
@@ -164,13 +157,6 @@ abstract class ComponentElement extends Element {
   }
 }
 
-abstract class StatelessWidget extends Widget {
-  @override
-  Element createElement() => StatelessElement(this);
-
-  Widget build(Element context);
-}
-
 class StatelessElement extends ComponentElement {
   StatelessElement(StatelessWidget widget) : super(widget);
 
@@ -178,13 +164,6 @@ class StatelessElement extends ComponentElement {
 
   @override
   Widget build(Element context) => widget.build(context);
-}
-
-abstract class StatefulWidget extends Widget {
-  @override
-  Element createElement() => StatefulElement(this);
-
-  State<StatefulWidget> createState();
 }
 
 class StatefulElement extends ComponentElement {
@@ -223,35 +202,6 @@ class StatefulElement extends ComponentElement {
     _state.widget = widget;
     _state.didUpdateWidget(oldWidget);
   }
-}
-
-abstract class State<T extends StatefulWidget> {
-  T widget;
-  StatefulElement element;
-
-  void setState(void Function() fn) {
-    fn();
-    element.markNeedsBuild();
-  }
-
-  void initState() {}
-
-  void didUpdateWidget(T oldWidget) {}
-
-  Widget build(Element context);
-
-  void dispose() {}
-}
-
-abstract class RenderObjectWidget extends Widget {
-  @override
-  RenderObjectElement createElement();
-
-  RenderObject createRenderObject(Element context);
-
-  void updateRenderObject(Element context, covariant RenderObject renderObject);
-
-  void didUnmountRenderObject(covariant RenderObject renderObject);
 }
 
 abstract class RenderObjectElement extends Element {
@@ -323,10 +273,6 @@ abstract class RenderObjectElement extends Element {
   void removeChildRenderObject(RenderObject child);
 }
 
-abstract class LeafRenderObjectWidget extends RenderObjectWidget {
-  LeafRenderObjectElement createElement() => LeafRenderObjectElement(this);
-}
-
 class LeafRenderObjectElement extends RenderObjectElement {
   LeafRenderObjectElement(LeafRenderObjectWidget widget) : super(widget);
 
@@ -344,15 +290,6 @@ class LeafRenderObjectElement extends RenderObjectElement {
   void removeChildRenderObject(RenderObject renderObject) {
     assert(false);
   }
-}
-
-abstract class SingleChildRenderObjectWidget extends RenderObjectWidget {
-  SingleChildRenderObjectWidget(this.child);
-
-  final Widget child;
-
-  @override
-  RenderObjectElement createElement() => SingleChildRenderObjectElement(this);
 }
 
 class SingleChildRenderObjectElement extends RenderObjectElement {
@@ -396,32 +333,45 @@ class SingleChildRenderObjectElement extends RenderObjectElement {
   }
 }
 
-mixin RenderObjectWithChild on RenderObject {
-  RenderObject get child => _child;
-  void set child(RenderObject value) {
-    if (value == null) dropChild(child);
-    _child = value;
-    if (value != null) adoptChild(child);
-  }
+class BuildOwner {
+  List<Element> _dirtyElements = <Element>[];
 
-  RenderObject _child;
+  bool _scheduledFlushDirtyElements = false;
 
-  @override
-  void attach(PipelineOwner owner) {
-    super.attach(owner);
-    child?.attach(owner);
-  }
+  Set<Element> inactiveElements = <Element>{};
 
-  @override
-  void detach() {
-    super.detach();
-    child?.detach();
-  }
-
-  @override
-  void visitChildren(void Function(RenderObject child) visitor) {
-    if (child != null) {
-      visitor(child);
+  void scheduleBuildFor(Element element) {
+    if (!_scheduledFlushDirtyElements) {
+      _scheduledFlushDirtyElements = true;
+      // flutter calls onBuildScheduled which eventually call scheduleFrame
+      WidgetsBinding.instance.scheduleFrame();
     }
+    _dirtyElements.add(element);
+  }
+
+  void buildScope(Element context, [void Function() callback]) {
+    if (callback != null) {
+      callback();
+    }
+
+    int index = 0;
+    _dirtyElements.sort(Element.sortByDepthAscending);
+    while (index < _dirtyElements.length) {
+      _dirtyElements[index].rebuild();
+      index += 1;
+    }
+    _dirtyElements.clear();
+    _scheduledFlushDirtyElements = false;
+  }
+
+  void finalizeTree() {
+    inactiveElements.toList()
+      ..sort(Element.sortByDepthAscending)
+      ..reversed.forEach(_unmountTreeElement);
+  }
+
+  void _unmountTreeElement(Element e) {
+    e.visitChildren((c) => _unmountTreeElement(c));
+    e.unmount();
   }
 }

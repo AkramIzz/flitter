@@ -1,8 +1,6 @@
 import 'dart:collection';
 
 import 'framework.dart';
-import 'geometry.dart';
-import 'render_object.dart';
 
 void main(List<String> args) {
   runApp(App());
