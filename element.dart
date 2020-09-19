@@ -333,6 +333,135 @@ class SingleChildRenderObjectElement extends RenderObjectElement {
   }
 }
 
+class MultiChildRenderObjectElement extends RenderObjectElement {
+  MultiChildRenderObjectElement(MultiChildRenderObjectWidget widget)
+      : super(widget);
+
+  @override
+  MultiChildRenderObjectWidget get widget => super.widget;
+
+  @override
+  ContainerRenderObjectMixin get renderObject => super.renderObject;
+
+  Iterable<Element> get children => _children;
+  List<Element> _children;
+
+  @override
+  void mount(Element parent) {
+    super.mount(parent);
+    _children = List<Element>(widget.children.length);
+    for (final widget in widget.children) {
+      _children.add(inflateWidget(widget));
+    }
+  }
+
+  @override
+  void insertChildRenderObject(RenderObject child) {
+    renderObject.add(child);
+  }
+
+  @override
+  void removeChildRenderObject(RenderObject child) {
+    renderObject.remove(child);
+  }
+
+  @override
+  void visitChildren(void Function(Element) visitor) {
+    for (final child in _children) {
+      visitor(child);
+    }
+  }
+
+  @override
+  void update(MultiChildRenderObjectWidget newWidget) {
+    super.update(newWidget);
+    _children = updateChildren(_children, newWidget.children);
+  }
+
+  List<Element> updateChildren(
+      List<Element> oldElements, List<Widget> newWidgets) {
+    int newWidgetsTop = 0;
+    int oldElementsTop = 0;
+    int newWidgetsBottom = newWidgets.length - 1;
+    int oldElementsBottom = oldElements.length - 1;
+
+    final List<Element> newElements = oldElements.length == newWidgets.length
+        ? oldElements
+        : List<Element>(newWidgets.length);
+
+    // TODO used for slot
+    // Element slot;
+
+    // update top of the children list
+    while ((oldElementsTop <= oldElementsBottom) &&
+        (newWidgetsTop <= newWidgetsBottom)) {
+      final oldElement = oldElements[oldElementsTop];
+      final newWidget = newWidgets[newWidgetsTop];
+      if (!Widget.canUpdate(oldElement.widget, newWidget)) {
+        // we can't update so we stop
+        break;
+      }
+      final newElement = updateChild(oldElement, newWidget);
+      newElements[newWidgetsTop] = newElement;
+      newWidgetsTop += 1;
+      oldElementsTop += 1;
+    }
+
+    // scan bottom of the children list
+    while ((oldElementsTop <= oldElementsBottom) &&
+        (newWidgetsTop <= newWidgetsBottom)) {
+      final oldElement = oldElements[oldElementsBottom];
+      final newWidget = newWidgets[newWidgetsBottom];
+      if (!Widget.canUpdate(oldElement.widget, newWidget)) {
+        // we can't update so we stop
+        break;
+      }
+      // We should update from top to bottom so side effects from widgets happen in order.
+      // So this just defines the boundaries of the middle elements. Updating the bottom of
+      // the children list happens later after we go through the middle of the list.
+      newWidgetsBottom -= 1;
+      oldElementsBottom -= 1;
+    }
+
+    // update the old children in the middle of the list.
+    // Deactivate the old elements.
+    // TODO keys
+    while (oldElementsTop <= oldElementsBottom) {
+      final oldElement = oldElements[oldElementsTop];
+      deactivateChild(oldElement);
+      oldElementsTop += 1;
+    }
+
+    // at this point oldElementsTop = oldElementsBottom + 1,
+    // note we haven't lost the index from where we need to update bottom of the list
+
+    // Inflate widgets of new elements.
+    while (newWidgetsTop <= newWidgetsBottom) {
+      final newElement = updateChild(null, newWidgets[newWidgetsTop]);
+      newElements[newWidgetsTop] = newElement;
+      newWidgetsTop += 1;
+    }
+
+    // at this point newWidgetsTop = oldWidgetsTop + 1,
+    // note we haven't lost the index from where we need to update bottom of the list
+
+    oldElementsBottom = oldElements.length - 1;
+    newWidgetsBottom = newWidgets.length - 1;
+    // we restored the previous state with bottom pointing to end of list,
+    // and top to the point where updating should start at.
+    while ((oldElementsTop <= oldElementsBottom) &&
+        (newWidgetsTop <= newWidgetsBottom)) {
+      final newElement =
+          updateChild(oldElements[oldElementsTop], newWidgets[newWidgetsTop]);
+      newElements[newWidgetsTop] = newElement;
+      newWidgetsTop += 1;
+      oldElementsTop += 1;
+    }
+
+    return newElements;
+  }
+}
+
 class BuildOwner {
   List<Element> _dirtyElements = <Element>[];
 

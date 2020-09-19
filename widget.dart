@@ -64,3 +64,12 @@ abstract class SingleChildRenderObjectWidget extends RenderObjectWidget {
   @override
   RenderObjectElement createElement() => SingleChildRenderObjectElement(this);
 }
+
+abstract class MultiChildRenderObjectWidget extends RenderObjectWidget {
+  MultiChildRenderObjectWidget(this.children);
+
+  final List<Widget> children;
+
+  @override
+  RenderObjectElement createElement() => MultiChildRenderObjectElement(this);
+}

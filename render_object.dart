@@ -158,6 +158,42 @@ mixin RenderObjectWithChild on RenderObject {
   }
 }
 
+mixin ContainerRenderObjectMixin on RenderObject {
+  Iterable<RenderObject> get children => _children;
+  List<RenderObject> _children;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    for (final child in children) {
+      child.attach(owner);
+    }
+  }
+
+  @override
+  void detach() {
+    super.detach();
+    for (final child in children) {
+      child.detach();
+    }
+  }
+
+  void add(RenderObject child) {
+    _children.add(child);
+  }
+
+  void remove(RenderObject child) {
+    _children.remove(child);
+  }
+
+  @override
+  void visitChildren(void Function(RenderObject child) visitor) {
+    for (final child in children) {
+      visitor(child);
+    }
+  }
+}
+
 mixin RootRenderObjectMixin on RenderObject {
   void scheduleInitialLayout() {
     _relayoutBoundary = this;
