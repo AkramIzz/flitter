@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math';
 
 import 'framework.dart';
 
@@ -44,15 +45,15 @@ void printTree(Element child) {
 void _printElement(Element element, int depth) {
   if (element is LeafElement) {
     print(
-        '${'  ' * depth}${element.runtimeType}: data => ${element.widget.data}');
+        '${'  ' * depth}${element.hashCode}#${element.widget.runtimeType}: data => ${element.widget.data}');
   } else if (element is LeafRenderObjectElement) {
     print(
-        '${'  ' * depth}${element.runtimeType}: size => ${(element.renderObject as LeafBoxRenderObject).size}');
+        '${'  ' * depth}${element.hashCode}#${element.widget.runtimeType}: size => ${(element.renderObject as LeafBoxRenderObject).size}');
   } else if (element is SingleChildRenderObjectElement) {
     print(
-        '${'  ' * depth}${element.runtimeType}: size => ${(element.renderObject as BoxWithChildRenderObject).size}');
+        '${'  ' * depth}${element.hashCode}#${element.widget.runtimeType}: size => ${(element.renderObject as BoxWithChildRenderObject).size}');
   } else {
-    print('${'  ' * depth}${element.runtimeType}');
+    print('${'  ' * depth}${element.hashCode}#${element.widget.runtimeType}');
   }
 }
 
@@ -85,10 +86,10 @@ class AppStatefulState extends State<AppStatefulWidget> {
   Widget build(Element context) {
     if (useParent) {
       return BoxWithChildWidget(
-        LeafBoxWidget(),
+        LeafBoxWidget(480.0, 360.0),
       );
     } else {
-      return LeafBoxWidget();
+      return LeafBoxWidget(320.0, 240.0);
     }
   }
 
@@ -136,17 +137,30 @@ class LeafElement extends Element {
 }
 
 class LeafBoxWidget extends LeafRenderObjectWidget {
-  @override
-  RenderObject createRenderObject(Element context) => LeafBoxRenderObject();
+  final double width, height;
+
+  LeafBoxWidget(this.width, this.height);
 
   @override
-  void updateRenderObject(Element context, RenderObject renderObject) {}
+  RenderObject createRenderObject(Element context) => LeafBoxRenderObject(_additionalConstraints);
+
+  @override
+  void updateRenderObject(Element context, LeafBoxRenderObject renderObject) {
+    renderObject
+      ..additionalConstraints = _additionalConstraints;
+  }
+
+  BoxConstraints get _additionalConstraints {
+    return BoxConstraints.tight(Size(width, height));
+  }
 
   @override
   void didUnmountRenderObject(RenderObject renderObject) {}
 }
 
 class LeafBoxRenderObject extends RenderObject {
+  LeafBoxRenderObject(this._additionalConstraints);
+
   @override
   bool get sizedByParent => true;
 
@@ -156,13 +170,28 @@ class LeafBoxRenderObject extends RenderObject {
   Size get size => _size;
   Size _size;
 
-  @override
-  void performLayout() {}
+  BoxConstraints _additionalConstraints;
+  BoxConstraints get additionalConstraints => _additionalConstraints;
+  void set additionalConstraints(BoxConstraints val) {
+    if (val != _additionalConstraints) {
+      _additionalConstraints = val;
+      markNeedsLayout();
+    }
+  }
 
   @override
   void performResize() {
-    _size = Size(constraints.maxWidth / 2, constraints.maxHeight / 2);
+    final computed = BoxConstraints(
+      maxHeight: min(constraints.maxHeight, additionalConstraints.maxHeight),
+      minHeight: max(constraints.minHeight, additionalConstraints.minHeight),
+      maxWidth: min(constraints.maxWidth, additionalConstraints.maxWidth),
+      minWidth: max(constraints.minWidth, additionalConstraints.minWidth),
+    );
+    _size = Size(computed.maxWidth, computed.maxHeight);
   }
+
+  @override
+  void performLayout() {}
 
   @override
   void visitChildren(void Function(RenderObject child) visitor) {
