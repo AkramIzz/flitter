@@ -6,18 +6,35 @@ import 'framework.dart';
 void main(List<String> args) {
   runApp(App());
   printTree(WidgetsBinding.instance.rootElement);
+  print('');
   invokeEvent(WidgetsBinding.instance.rootElement);
   WidgetsBinding.instance.addPostFrameCallback(() {
     printTree(WidgetsBinding.instance.rootElement);
+    print('');
+    invokeEvent2(WidgetsBinding.instance.rootElement);
+    WidgetsBinding.instance.addPostFrameCallback(() {
+      printTree(WidgetsBinding.instance.rootElement);
+      print('');
+    });
   });
 }
 
 void invokeEvent(Element element) {
   if (element is StatefulElement && element.widget is AppStatefulWidget) {
     (element.state as AppStatefulState).onEvent();
+    print('invoked Event');
     return;
   }
   element.visitChildren(invokeEvent);
+}
+
+void invokeEvent2(Element element) {
+  if (element is StatefulElement && element.widget is WrapperStatefulWidget) {
+    (element.state as WrapperStatefulState).onEvent();
+    print('invoked Event 2');
+    return;
+  }
+  element.visitChildren(invokeEvent2);
 }
 
 void printTree(Element child) {
@@ -60,7 +77,27 @@ void _printElement(Element element, int depth) {
 class App extends StatelessWidget {
   @override
   Widget build(Element context) {
-    return AppStatefulWidget(false);
+    return WrapperStatefulWidget();
+  }
+}
+
+class WrapperStatefulWidget extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() => WrapperStatefulState();
+}
+
+class WrapperStatefulState extends State<WrapperStatefulWidget> {
+  bool state = false;
+
+  @override
+  Widget build(Element context) {
+    return AppStatefulWidget(state);
+  }
+
+  void onEvent() {
+    setState(() {
+      state = true;
+    });
   }
 }
 
@@ -75,18 +112,27 @@ class AppStatefulWidget extends StatefulWidget {
 
 class AppStatefulState extends State<AppStatefulWidget> {
   bool useParent;
+  bool changeSize;
 
   @override
   void initState() {
     super.initState();
     useParent = widget.initialState;
+    changeSize = widget.initialState;
+  }
+
+  @override
+  void didUpdateWidget(AppStatefulWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('didUpdateWidget');
+    changeSize = widget.initialState;
   }
 
   @override
   Widget build(Element context) {
     if (useParent) {
       return BoxWithChildWidget(
-        LeafBoxWidget(480.0, 360.0),
+        changeSize ? LeafBoxWidget(480.0, 360.0) : LeafBoxWidget(360.0, 480.0),
       );
     } else {
       return LeafBoxWidget(320.0, 240.0);
@@ -162,7 +208,7 @@ class LeafBoxRenderObject extends RenderObject {
   LeafBoxRenderObject(this._additionalConstraints);
 
   @override
-  bool get sizedByParent => true;
+  bool get sizedByParent => false;
 
   @override
   BoxConstraints get constraints => super.constraints;
@@ -180,7 +226,10 @@ class LeafBoxRenderObject extends RenderObject {
   }
 
   @override
-  void performResize() {
+  void performResize() { }
+
+  @override
+  void performLayout() {
     final computed = BoxConstraints(
       maxHeight: min(constraints.maxHeight, additionalConstraints.maxHeight),
       minHeight: max(constraints.minHeight, additionalConstraints.minHeight),
@@ -189,9 +238,6 @@ class LeafBoxRenderObject extends RenderObject {
     );
     _size = Size(computed.maxWidth, computed.maxHeight);
   }
-
-  @override
-  void performLayout() {}
 
   @override
   void visitChildren(void Function(RenderObject child) visitor) {
