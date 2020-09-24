@@ -201,6 +201,8 @@ class StatefulElement extends ComponentElement {
     final oldWidget = _state.widget;
     _state.widget = widget;
     _state.didUpdateWidget(oldWidget);
+    dirty = true;
+    rebuild();
   }
 }
 
