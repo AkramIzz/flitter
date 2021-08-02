@@ -1,7 +1,7 @@
 import 'dart:collection';
 import 'dart:math';
 
-import 'framework.dart';
+import 'package:flitter/framework.dart';
 
 void main(List<String> args) {
   runApp(App());
