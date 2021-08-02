@@ -1,19 +1,19 @@
 import 'geometry.dart';
 
 class Window {
-  Window._() {}
+  Window._();
 
   Size get physicalSize => _physicalSize;
-  Size _physicalSize = const Size(640.0, 480.0);
+  final Size _physicalSize = const Size(640.0, 480.0);
 
   double get devicePixelRation => _devicePixelRation;
-  double _devicePixelRation = 1.0;
+  final double _devicePixelRation = 1.0;
 
-  scheduleFrame() {
+  void scheduleFrame() {
     Future.delayed(Duration(seconds: 1), () => _onDrawFrame(0));
   }
 
-  _onDrawFrame(num timestamp) {
+  void _onDrawFrame(num timestamp) {
     onDrawFrame();
   }
 

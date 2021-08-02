@@ -53,6 +53,7 @@ abstract class RenderObjectWidget extends Widget {
 }
 
 abstract class LeafRenderObjectWidget extends RenderObjectWidget {
+  @override
   LeafRenderObjectElement createElement() => LeafRenderObjectElement(this);
 }
 

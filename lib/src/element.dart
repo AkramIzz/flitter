@@ -5,7 +5,7 @@ import 'widget.dart';
 abstract class Element {
   Element(this._widget);
 
-  Widget get widget => this._widget;
+  Widget get widget => _widget;
   Widget _widget;
 
   bool dirty = true;
@@ -160,6 +160,7 @@ abstract class ComponentElement extends Element {
 class StatelessElement extends ComponentElement {
   StatelessElement(StatelessWidget widget) : super(widget);
 
+  @override
   StatelessWidget get widget => super.widget;
 
   @override
@@ -300,6 +301,7 @@ class SingleChildRenderObjectElement extends RenderObjectElement {
 
   Element _child;
 
+  @override
   SingleChildRenderObjectWidget get widget => super.widget;
 
   @override
@@ -351,7 +353,7 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
   @override
   void mount(Element parent) {
     super.mount(parent);
-    _children = List<Element>(widget.children.length);
+    _children = []..length = widget.children.length;
     for (final widget in widget.children) {
       _children.add(inflateWidget(widget));
     }
@@ -389,7 +391,7 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
 
     final List<Element> newElements = oldElements.length == newWidgets.length
         ? oldElements
-        : List<Element>(newWidgets.length);
+        : []..length = newWidgets.length;
 
     // TODO used for slot
     // Element slot;
@@ -465,7 +467,7 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
 }
 
 class BuildOwner {
-  List<Element> _dirtyElements = <Element>[];
+  final List<Element> _dirtyElements = <Element>[];
 
   bool _scheduledFlushDirtyElements = false;
 

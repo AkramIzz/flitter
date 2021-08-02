@@ -32,7 +32,7 @@ class WidgetsBinding {
   Element get rootElement => _rootElement;
   Element _rootElement;
 
-  List<void Function()> _postFrameCallbacks = <void Function()>[];
+  final List<void Function()> _postFrameCallbacks = <void Function()>[];
 
   static WidgetsBinding ensureInitialized() {
     if (_instance == null) {
@@ -124,7 +124,7 @@ class RenderView extends RenderObject with RootRenderObjectMixin {
   }
 
   ViewConfiguration get configuration => _configuration;
-  ViewConfiguration _configuration;
+  final ViewConfiguration _configuration;
 
   RenderObject get child => _child;
   set child(RenderObject value) {
@@ -204,8 +204,10 @@ class RootElementWidget extends RenderObjectWidget {
 class RootElement extends RenderObjectElement {
   RootElement(RootElementWidget widget) : super(widget);
 
+  @override
   RootElementWidget get widget => super.widget;
 
+  @override
   RenderView get renderObject => super.renderObject;
 
   Element _child;

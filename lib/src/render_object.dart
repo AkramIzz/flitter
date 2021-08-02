@@ -130,7 +130,7 @@ abstract class RenderObject {
 
 mixin RenderObjectWithChild on RenderObject {
   RenderObject get child => _child;
-  void set child(RenderObject value) {
+  set child(RenderObject value) {
     if (value == null) dropChild(child);
     _child = value;
     if (value != null) adoptChild(child);
@@ -215,8 +215,9 @@ class PipelineOwner {
         ..sort(RenderObject.sortByDepthAscending);
       _nodesNeedingLayout = <RenderObject>[];
       for (final node in dirtyNodes) {
-        if (node._needsLayout && node.owner == this)
+        if (node._needsLayout && node.owner == this) {
           node._layoutWithoutResize();
+        }
       }
     }
   }

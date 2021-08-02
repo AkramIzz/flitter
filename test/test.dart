@@ -177,7 +177,7 @@ class LeafElement extends Element {
     super.update(newWidget);
     if (oldWidget.data != widget.data) {
       print(
-          "widget with data=${oldWidget.data} has been updated to data=${widget.data}");
+          'widget with data=${oldWidget.data} has been updated to data=${widget.data}');
     }
   }
 }
@@ -193,7 +193,7 @@ class LeafBoxWidget extends LeafRenderObjectWidget {
   @override
   void updateRenderObject(Element context, LeafBoxRenderObject renderObject) {
     renderObject
-      ..additionalConstraints = _additionalConstraints;
+      .additionalConstraints = _additionalConstraints;
   }
 
   BoxConstraints get _additionalConstraints {
@@ -218,7 +218,7 @@ class LeafBoxRenderObject extends RenderObject {
 
   BoxConstraints _additionalConstraints;
   BoxConstraints get additionalConstraints => _additionalConstraints;
-  void set additionalConstraints(BoxConstraints val) {
+  set additionalConstraints(BoxConstraints val) {
     if (val != _additionalConstraints) {
       _additionalConstraints = val;
       markNeedsLayout();
