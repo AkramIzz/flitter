@@ -353,9 +353,9 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
   @override
   void mount(Element parent) {
     super.mount(parent);
-    _children = []..length = widget.children.length;
-    for (final widget in widget.children) {
-      _children.add(inflateWidget(widget));
+    _children = List.filled(widget.children.length, null);
+    for (int i = 0; i < widget.children.length; ++i) {
+      _children[i] = inflateWidget(widget.children[i]);
     }
   }
 
